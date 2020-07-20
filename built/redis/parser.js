@@ -144,10 +144,10 @@ exports.returnReply = function (reply) {
     }
     else {
         item = this.commandQueue.shift();
-        logData('reply from redis', { command: item.command.name, slot: item.command.slot, args: item.command.args, reply: reply && reply.toString(), now: Date.now() });
+        logData('reply from redis', { command: item.command.name, slot: item.command.slot, args: item.command.args, reply: reply.toString(), now: Date.now() });
         if (!item) {
             return this.emit('error', new Error('Command queue state error. If you can reproduce this, please report it. Last reply: ' +
-                (reply && reply.toString())));
+                reply.toString()));
         }
         if (Command.checkFlag('ENTER_SUBSCRIBER_MODE', item.command.name)) {
             this.condition.subscriber = new SubscriptionSet();
