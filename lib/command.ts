@@ -210,7 +210,7 @@ export default class Command {
    * @public
    */
   public toWritable(): string | Buffer {
-    logData('toWritable', { args: this.args, command: this.name, slot: this.slot });
+    logData('toWritable', { args: this.args, command: this.name, slot: this.slot, now: Date.now() });
     let bufferMode = false;
     for (const arg of this.args) {
       if (arg instanceof Buffer) {
