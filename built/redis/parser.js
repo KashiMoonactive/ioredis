@@ -144,6 +144,7 @@ exports.returnReply = function (reply) {
     }
     else {
         item = this.commandQueue.shift();
+        logData('reply from redis', { command: item.command.name, slot: item.command.slot, args: item.command.args, reply: reply.toString() });
         if (!item) {
             return this.emit('error', new Error('Command queue state error. If you can reproduce this, please report it. Last reply: ' +
                 reply.toString()));

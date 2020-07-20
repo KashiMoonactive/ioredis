@@ -7,6 +7,7 @@ const asCallback = require("standard-as-callback");
 const utils_1 = require("./utils");
 const lodash_1 = require("./utils/lodash");
 const promiseContainer_1 = require("./promiseContainer");
+const logger_1 = require("./logger");
 /**
  * Command instance
  *
@@ -145,6 +146,7 @@ class Command {
      * @public
      */
     toWritable() {
+        logger_1.logData('toWritable', { args: this.args, command: this.name, slot: this.slot });
         let bufferMode = false;
         for (const arg of this.args) {
             if (arg instanceof Buffer) {

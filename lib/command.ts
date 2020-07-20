@@ -2,9 +2,10 @@ import * as fbuffer from 'flexbuffer'
 import * as commands from 'redis-commands'
 import * as calculateSlot from 'cluster-key-slot'
 import * as asCallback from 'standard-as-callback'
-import {convertBufferToString, optimizeErrorStack, toArg, convertMapToArray, convertObjectToArray} from './utils'
-import {flatten} from './utils/lodash'
-import {get as getPromise} from './promiseContainer'
+import { convertBufferToString, optimizeErrorStack, toArg, convertMapToArray, convertObjectToArray } from './utils'
+import { flatten } from './utils/lodash'
+import { get as getPromise } from './promiseContainer'
+import { logData } from './logger'
 
 interface ICommandOptions {
   /**
@@ -20,7 +21,7 @@ interface ICommandOptions {
 
 type ArgumentTransformer = (args: any[]) => any[]
 type ReplyTransformer = (reply: any) => any
-type FlagMap = {[flag: string]: {[command: string]: true}}
+type FlagMap = { [flag: string]: { [command: string]: true } }
 
 /**
  * Command instance
@@ -63,7 +64,7 @@ export default class Command {
 
   private static flagMap?: FlagMap
 
-  private static getFlagMap (): FlagMap {
+  private static getFlagMap(): FlagMap {
     if (!this.flagMap) {
       this.flagMap = Object.keys(Command.FLAGS).reduce((map, flagName) => {
         map[flagName] = {}
@@ -83,23 +84,23 @@ export default class Command {
    * @param {string} commandName
    * @return {boolean}
    */
-  public static checkFlag (flagName: string, commandName: string): boolean {
+  public static checkFlag(flagName: string, commandName: string): boolean {
     return !!this.getFlagMap()[flagName][commandName]
   }
 
   private static _transformer: {
-    argument: {[command: string]: ArgumentTransformer},
-    reply: {[command: string]: ReplyTransformer}
+    argument: { [command: string]: ArgumentTransformer },
+    reply: { [command: string]: ReplyTransformer }
   } = {
-    argument: {},
-    reply: {}
-  };
+      argument: {},
+      reply: {}
+    };
 
-  public static setArgumentTransformer (name: string, func: ArgumentTransformer) {
+  public static setArgumentTransformer(name: string, func: ArgumentTransformer) {
     this._transformer.argument[name] = func
   }
 
-  public static setReplyTransformer (name: string, func: ReplyTransformer) {
+  public static setReplyTransformer(name: string, func: ReplyTransformer) {
     this._transformer.reply[name] = func
   }
 
@@ -126,7 +127,7 @@ export default class Command {
    * If omit, the response will be handled via Promise
    * @memberof Command
    */
-  constructor (public name: string, args: Array<string | Buffer | number> = [], options: ICommandOptions = {}, callback?: Function) {
+  constructor(public name: string, args: Array<string | Buffer | number> = [], options: ICommandOptions = {}, callback?: Function) {
     this.replyEncoding = options.replyEncoding
     this.errorStack = options.errorStack
 
@@ -142,7 +143,7 @@ export default class Command {
     }
   }
 
-  private initPromise () {
+  private initPromise() {
     const Promise = getPromise()
     const promise = new Promise((resolve, reject) => {
       if (!this.transformed) {
@@ -167,7 +168,7 @@ export default class Command {
     this.promise = asCallback(promise, this.callback)
   }
 
-  public getSlot () {
+  public getSlot() {
     if (typeof this.slot === 'undefined') {
       const key = this.getKeys()[0]
       this.slot = key == null ? null : calculateSlot(key)
@@ -175,7 +176,7 @@ export default class Command {
     return this.slot
   }
 
-  public getKeys (): Array<string | Buffer> {
+  public getKeys(): Array<string | Buffer> {
     return this._iterateKeys()
   }
 
@@ -187,7 +188,7 @@ export default class Command {
    * @returns {string[]} The keys of the command.
    * @memberof Command
    */
-  private _iterateKeys (transform: Function = (key) => key): Array<string | Buffer> {
+  private _iterateKeys(transform: Function = (key) => key): Array<string | Buffer> {
     if (typeof this.keys === 'undefined') {
       this.keys = []
       if (commands.exists(this.name)) {
@@ -208,7 +209,8 @@ export default class Command {
    * @see {@link Redis#sendCommand}
    * @public
    */
-  public toWritable (): string | Buffer {
+  public toWritable(): string | Buffer {
+    logData('toWritable', { args: this.args, command: this.name, slot: this.slot });
     let bufferMode = false;
     for (const arg of this.args) {
       if (arg instanceof Buffer) {
@@ -245,7 +247,7 @@ export default class Command {
     return result
   }
 
-  stringifyArguments (): void {
+  stringifyArguments(): void {
     for (let i = 0; i < this.args.length; ++i) {
       const arg = this.args[i]
       if (!(arg instanceof Buffer) && typeof arg !== 'string') {
@@ -262,7 +264,7 @@ export default class Command {
    * @returns {Function} A funtion to transform and resolve a value
    * @memberof Command
    */
-  private _convertValue (resolve: Function): (result: any) => void {
+  private _convertValue(resolve: Function): (result: any) => void {
     return (value) => {
       try {
         resolve(this.transformReply(value))
@@ -279,7 +281,7 @@ export default class Command {
    *
    * @memberof Command
    */
-  public transformReply (result: Buffer | Buffer[]): string | string[] | Buffer | Buffer[] {
+  public transformReply(result: Buffer | Buffer[]): string | string[] | Buffer | Buffer[] {
     if (this.replyEncoding) {
       result = convertBufferToString(result, this.replyEncoding)
     }
