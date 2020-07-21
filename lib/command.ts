@@ -16,7 +16,7 @@ interface ICommandOptions {
    */
   replyEncoding?: string | null,
   errorStack?: string,
-  keyPrefix?: string
+  keyPrefix?: string,
 }
 
 type ArgumentTransformer = (args: any[]) => any[]
@@ -109,6 +109,7 @@ export default class Command {
   private args: Array<string | Buffer | number>
   private callback: Function
   private transformed: boolean = false
+  private id: string
   public isCustomCommand: boolean = false
 
   private slot?: number | null
@@ -130,6 +131,7 @@ export default class Command {
   constructor(public name: string, args: Array<string | Buffer | number> = [], options: ICommandOptions = {}, callback?: Function) {
     this.replyEncoding = options.replyEncoding
     this.errorStack = options.errorStack
+    this.id = null;
 
     this.args = flatten(args)
     this.callback = callback
@@ -210,7 +212,7 @@ export default class Command {
    * @public
    */
   public toWritable(): string | Buffer {
-    logData('toWritable', { args: this.args, command: this.name, slot: this.slot, now: Date.now() });
+    logData('toWritable', { args: this.args, command: this.name, slot: this.slot, now: Date.now(), redisId: this.id });
     let bufferMode = false;
     for (const arg of this.args) {
       if (arg instanceof Buffer) {
@@ -245,6 +247,10 @@ export default class Command {
       }
     }
     return result
+  }
+
+  setRedisId(id) {
+    this.id = id;
   }
 
   stringifyArguments(): void {

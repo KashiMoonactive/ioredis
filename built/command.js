@@ -49,6 +49,7 @@ class Command {
         this.isCustomCommand = false;
         this.replyEncoding = options.replyEncoding;
         this.errorStack = options.errorStack;
+        this.id = null;
         this.args = lodash_1.flatten(args);
         this.callback = callback;
         this.initPromise();
@@ -146,7 +147,7 @@ class Command {
      * @public
      */
     toWritable() {
-        logger_1.logData('toWritable', { args: this.args, command: this.name, slot: this.slot, now: Date.now() });
+        logger_1.logData('toWritable', { args: this.args, command: this.name, slot: this.slot, now: Date.now(), redisId: this.id });
         let bufferMode = false;
         for (const arg of this.args) {
             if (arg instanceof Buffer) {
@@ -183,6 +184,9 @@ class Command {
             }
         }
         return result;
+    }
+    setRedisId(id) {
+        this.id = id;
     }
     stringifyArguments() {
         for (let i = 0; i < this.args.length; ++i) {

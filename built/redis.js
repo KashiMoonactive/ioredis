@@ -15,6 +15,7 @@ var commands = require('redis-commands');
 var PromiseContainer = require('./promiseContainer');
 const { setLogger, logSetGetTournamentsCommand } = require('./loggetsettournaments');
 const Logger = require('./logger');
+const cuid = require('cuid');
 /**
  * Creates a Redis instance
  *
@@ -111,6 +112,7 @@ function Redis() {
         console.error(new Error('Calling `Redis()` like a function is deprecated. Using `new Redis()` instead.').stack.replace('Error', 'Warning'));
         return new Redis(arguments[0], arguments[1], arguments[2]);
     }
+    this.id = cuid();
     this.parseOptions(arguments[0], arguments[1], arguments[2]);
     EventEmitter.call(this);
     Commander.call(this);
@@ -580,7 +582,7 @@ require('./transaction').addTransactionSupport(Redis.prototype);
  * @private
  */
 Redis.prototype.sendCommand = function (command, stream) {
-    // logSetGetTournamentsCommand('SEND', command);
+    command.setRedisId(this.id);
     if (this.status === 'wait') {
         this.connect().catch(_.noop);
     }
