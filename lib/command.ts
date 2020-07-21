@@ -212,7 +212,7 @@ export default class Command {
    * @public
    */
   public toWritable(): string | Buffer {
-    logData('toWritable', { args: this.args, command: this.name, slot: this.slot, now: Date.now(), redisId: this.id });
+    logData('toWritable', { args: this.args, command: this.name, slot: this.slot, now: Date.now(), redisId: this.id || 'missing' });
     let bufferMode = false;
     for (const arg of this.args) {
       if (arg instanceof Buffer) {

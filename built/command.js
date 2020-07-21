@@ -147,7 +147,7 @@ class Command {
      * @public
      */
     toWritable() {
-        logger_1.logData('toWritable', { args: this.args, command: this.name, slot: this.slot, now: Date.now(), redisId: this.id });
+        logger_1.logData('toWritable', { args: this.args, command: this.name, slot: this.slot, now: Date.now(), redisId: this.id || 'missing' });
         let bufferMode = false;
         for (const arg of this.args) {
             if (arg instanceof Buffer) {
