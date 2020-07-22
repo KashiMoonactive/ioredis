@@ -165,6 +165,14 @@ export default class Command {
       } else {
         this.reject = reject
       }
+      const origReject = this.reject;
+      this.reject = (err) => {
+        try {
+          origReject(err);
+        } catch (err) {
+          logData('exception caught when calling reject', { error: err, command: this.name, args: this.args, redisId: this.id })
+        }
+      }
     })
 
     this.promise = asCallback(promise, this.callback)
@@ -212,7 +220,7 @@ export default class Command {
    * @public
    */
   public toWritable(): string | Buffer {
-    logData('toWritable', { args: this.args, command: this.name, slot: this.slot, now: Date.now(), redisId: this.id || 'missing' });
+    // logData('toWritable', { args: this.args, command: this.name, slot: this.slot, now: Date.now(), redisId: this.id || 'missing' });
     let bufferMode = false;
     for (const arg of this.args) {
       if (arg instanceof Buffer) {
