@@ -1,20 +1,21 @@
-import {EventEmitter} from 'events'
+import { EventEmitter } from 'events'
 import ClusterAllFailedError from '../errors/ClusterAllFailedError'
-import {defaults, noop} from '../utils/lodash'
+import { defaults, noop } from '../utils/lodash'
 import ConnectionPool from './ConnectionPool'
-import {NodeKey, IRedisOptions, normalizeNodeOptions, NodeRole, getUniqueHostnamesFromOptions, nodeKeyToRedisOptions} from './util'
+import { NodeKey, IRedisOptions, normalizeNodeOptions, NodeRole, getUniqueHostnamesFromOptions, nodeKeyToRedisOptions } from './util'
 import ClusterSubscriber from './ClusterSubscriber'
 import DelayQueue from './DelayQueue'
 import ScanStream from '../ScanStream'
-import {AbortError, RedisError} from 'redis-errors'
+import { AbortError, RedisError } from 'redis-errors'
 import * as asCallback from 'standard-as-callback'
 import * as PromiseContainer from '../promiseContainer'
-import {CallbackFunction} from '../types';
-import {IClusterOptions, DEFAULT_CLUSTER_OPTIONS} from './ClusterOptions'
-import {sample, CONNECTION_CLOSED_ERROR_MSG, shuffle, timeout, zipMap} from '../utils'
+import { CallbackFunction } from '../types';
+import { IClusterOptions, DEFAULT_CLUSTER_OPTIONS } from './ClusterOptions'
+import { sample, CONNECTION_CLOSED_ERROR_MSG, shuffle, timeout, zipMap } from '../utils'
 import * as commands from 'redis-commands'
 import Command from '../command'
 import * as logtest from '../loggetsettournaments';
+import { logData } from '../logger'
 const Deque = require('denque')
 const Redis = require('../redis')
 const debug = require('../utils/debug')('ioredis:cluster')
@@ -413,7 +414,11 @@ class Cluster extends EventEmitter {
     let item
     while (this.offlineQueue.length > 0) {
       item = this.offlineQueue.shift()
-      item.command.reject(error)
+      try {
+        item.command.reject(error)
+      } catch (err) {
+        logData('exception caught when calling flush queue in index.js', { error: err, command: item.command.name, args: item.command.args, redisId: item.command.id });
+      }
     }
   }
 
@@ -465,35 +470,39 @@ class Cluster extends EventEmitter {
       const reject = command.reject
       command.reject = function (err) {
         const partialTry = tryConnection.bind(null, true)
-        _this.handleError(err, ttl, {
-          moved: function (slot, key) {
-            debug('command %s is moved to %s', command.name, key)
-            targetSlot = Number(slot)
-            if (_this.slots[slot]) {
-              _this.slots[slot][0] = key
-            } else {
-              _this.slots[slot] = [key]
+        try {
+          _this.handleError(err, ttl, {
+            moved: function (slot, key) {
+              debug('command %s is moved to %s', command.name, key)
+              targetSlot = Number(slot)
+              if (_this.slots[slot]) {
+                _this.slots[slot][0] = key
+              } else {
+                _this.slots[slot] = [key]
+              }
+              _this.connectionPool.findOrCreate(_this.natMapper(key))
+              tryConnection()
+              _this.refreshSlotsCache()
+            },
+            ask: function (slot, key) {
+              debug('command %s is required to ask %s:%s', command.name, key)
+              const mapped = _this.natMapper(key)
+              _this.connectionPool.findOrCreate(mapped)
+              tryConnection(false, `${mapped.host}:${mapped.port}`)
+            },
+            tryagain: partialTry,
+            clusterDown: partialTry,
+            connectionClosed: partialTry,
+            maxRedirections: function (redirectionError) {
+              reject.call(command, redirectionError)
+            },
+            defaults: function () {
+              reject.call(command, err)
             }
-            _this.connectionPool.findOrCreate(_this.natMapper(key))
-            tryConnection()
-            _this.refreshSlotsCache()
-          },
-          ask: function (slot, key) {
-            debug('command %s is required to ask %s:%s', command.name, key)
-            const mapped = _this.natMapper(key)
-            _this.connectionPool.findOrCreate(mapped)
-            tryConnection(false, `${mapped.host}:${mapped.port}`)
-          },
-          tryagain: partialTry,
-          clusterDown: partialTry,
-          connectionClosed: partialTry,
-          maxRedirections: function (redirectionError) {
-            reject.call(command, redirectionError)
-          },
-          defaults: function () {
-            reject.call(command, err)
-          }
-        })
+          })
+        } catch (err) {
+          logData('exception caught when calling orig reject', { error: err, command: command.name, redisId: command.id, args: commands.args });
+        }
       }
     }
     tryConnection()
@@ -644,7 +653,7 @@ class Cluster extends EventEmitter {
 
         const keys = []
         for (let j = 2; j < items.length; j++) {
-          items[j] = this.natMapper({host: items[j][0], port: items[j][1]})
+          items[j] = this.natMapper({ host: items[j][0], port: items[j][1] })
           items[j].readOnly = j !== 2
           nodes.push(items[j])
           keys.push(items[j].host + ':' + items[j].port)
@@ -696,7 +705,7 @@ class Cluster extends EventEmitter {
     })
   }
 
-  private dnsLookup (hostname: string): Promise<string> {
+  private dnsLookup(hostname: string): Promise<string> {
     return new Promise((resolve, reject) => {
       this.options.dnsLookup(hostname, (err, address) => {
         if (err) {
@@ -735,7 +744,7 @@ class Cluster extends EventEmitter {
 
       return startupNodes.map((node) => (
         hostnameToIP.has(node.host)
-          ? Object.assign({}, node, {host: hostnameToIP.get(node.host)})
+          ? Object.assign({}, node, { host: hostnameToIP.get(node.host) })
           : node
       ))
     })

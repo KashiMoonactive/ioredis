@@ -170,7 +170,7 @@ export default class Command {
         try {
           origReject(err);
         } catch (err) {
-          logData('exception caught when calling reject', { error: err, command: this.name, args: this.args, redisId: this.id })
+          logData('exception caught when calling orig reject', { error: err, command: this.name, args: this.args, redisId: this.id })
         }
       }
     })

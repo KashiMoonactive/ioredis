@@ -16,6 +16,7 @@ const utils_1 = require("../utils");
 const commands = require("redis-commands");
 const command_1 = require("../command");
 const logtest = require("../loggetsettournaments");
+const logger_1 = require("../logger");
 const Deque = require('denque');
 const Redis = require('../redis');
 const debug = require('../utils/debug')('ioredis:cluster');
@@ -366,7 +367,12 @@ class Cluster extends events_1.EventEmitter {
         let item;
         while (this.offlineQueue.length > 0) {
             item = this.offlineQueue.shift();
-            item.command.reject(error);
+            try {
+                item.command.reject(error);
+            }
+            catch (err) {
+                logger_1.logData('exception caught when calling flush queue in index.js', { error: err, command: item.command.name, args: item.command.args, redisId: item.command.id });
+            }
         }
     }
     executeOfflineCommands() {
@@ -414,36 +420,41 @@ class Cluster extends events_1.EventEmitter {
             const reject = command.reject;
             command.reject = function (err) {
                 const partialTry = tryConnection.bind(null, true);
-                _this.handleError(err, ttl, {
-                    moved: function (slot, key) {
-                        debug('command %s is moved to %s', command.name, key);
-                        targetSlot = Number(slot);
-                        if (_this.slots[slot]) {
-                            _this.slots[slot][0] = key;
+                try {
+                    _this.handleError(err, ttl, {
+                        moved: function (slot, key) {
+                            debug('command %s is moved to %s', command.name, key);
+                            targetSlot = Number(slot);
+                            if (_this.slots[slot]) {
+                                _this.slots[slot][0] = key;
+                            }
+                            else {
+                                _this.slots[slot] = [key];
+                            }
+                            _this.connectionPool.findOrCreate(_this.natMapper(key));
+                            tryConnection();
+                            _this.refreshSlotsCache();
+                        },
+                        ask: function (slot, key) {
+                            debug('command %s is required to ask %s:%s', command.name, key);
+                            const mapped = _this.natMapper(key);
+                            _this.connectionPool.findOrCreate(mapped);
+                            tryConnection(false, `${mapped.host}:${mapped.port}`);
+                        },
+                        tryagain: partialTry,
+                        clusterDown: partialTry,
+                        connectionClosed: partialTry,
+                        maxRedirections: function (redirectionError) {
+                            reject.call(command, redirectionError);
+                        },
+                        defaults: function () {
+                            reject.call(command, err);
                         }
-                        else {
-                            _this.slots[slot] = [key];
-                        }
-                        _this.connectionPool.findOrCreate(_this.natMapper(key));
-                        tryConnection();
-                        _this.refreshSlotsCache();
-                    },
-                    ask: function (slot, key) {
-                        debug('command %s is required to ask %s:%s', command.name, key);
-                        const mapped = _this.natMapper(key);
-                        _this.connectionPool.findOrCreate(mapped);
-                        tryConnection(false, `${mapped.host}:${mapped.port}`);
-                    },
-                    tryagain: partialTry,
-                    clusterDown: partialTry,
-                    connectionClosed: partialTry,
-                    maxRedirections: function (redirectionError) {
-                        reject.call(command, redirectionError);
-                    },
-                    defaults: function () {
-                        reject.call(command, err);
-                    }
-                });
+                    });
+                }
+                catch (err) {
+                    logger_1.logData('exception caught when calling orig reject', { error: err, command: command.name, redisId: command.id, args: commands.args });
+                }
             };
         }
         tryConnection();

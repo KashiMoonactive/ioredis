@@ -111,7 +111,7 @@ class Command {
                     origReject(err);
                 }
                 catch (err) {
-                    logger_1.logData('exception caught when calling reject', { error: err, command: this.name, args: this.args, redisId: this.id });
+                    logger_1.logData('exception caught when calling orig reject', { error: err, command: this.name, args: this.args, redisId: this.id });
                 }
             };
         });

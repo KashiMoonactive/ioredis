@@ -16,6 +16,7 @@ var PromiseContainer = require('./promiseContainer');
 const { setLogger, logSetGetTournamentsCommand } = require('./loggetsettournaments');
 const Logger = require('./logger');
 const cuid = require('cuid');
+const { logData } = require('./logger');
 /**
  * Creates a Redis instance
  *
@@ -418,10 +419,15 @@ Redis.prototype.flushQueue = function (error, options) {
     var item;
     if (options.offlineQueue) {
         while (this.offlineQueue.length > 0) {
-            Logger.logData('in flushQueue offlineQueue while loop', { size: this.offlineQueue.length });
+            // Logger.logData('in flushQueue offlineQueue while loop', {size: this.offlineQueue.length});
             item = this.offlineQueue.shift();
-            item.command.reject(error);
-            Logger.logData('in flushQueue offlineQueue while loop after reject', { size: this.offlineQueue.length });
+            try {
+                item.command.reject(error);
+            }
+            catch (err) {
+                logData('exception caught when calling reject in flushQueue (offline queue) of inside redis.js', { error: err, command: command.name, redisId: command.id, args: commands.args });
+            }
+            // Logger.logData('in flushQueue offlineQueue while loop after reject', {size: this.offlineQueue.length});
         }
     }
     if (options.commandQueue) {
@@ -430,10 +436,15 @@ Redis.prototype.flushQueue = function (error, options) {
                 this.stream.removeAllListeners('data');
             }
             while (this.commandQueue.length > 0) {
-                Logger.logData('in flushQueue commandQueue while loop', { size: this.commandQueue.length });
+                // Logger.logData('in flushQueue commandQueue while loop', { size: this.commandQueue.length });
                 item = this.commandQueue.shift();
-                item.command.reject(error);
-                Logger.logData('in flushQueue commandQueue while loop after reject', { size: this.commandQueue.length });
+                try {
+                    item.command.reject(error);
+                }
+                catch (err) {
+                    logData('exception caught when calling reject in flushQueue (command queue) of inside redis.js', { error: err, command: command.name, redisId: command.id, args: commands.args });
+                }
+                // Logger.logData('in flushQueue commandQueue while loop after reject', { size: this.commandQueue.length });
             }
         }
     }
