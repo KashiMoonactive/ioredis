@@ -4,6 +4,7 @@ var Command = require('../command').default;
 var utils = require('../utils');
 var _ = require('../utils/lodash');
 var { MaxRetriesPerRequestError } = require('../errors');
+const { logData } = require('../logger');
 exports.connectHandler = function (self) {
     return function () {
         self.setStatus('connect');
@@ -99,7 +100,12 @@ exports.closeHandler = function (self) {
     };
     function close() {
         self.setStatus('end');
-        self.flushQueue(new Error(utils.CONNECTION_CLOSED_ERROR_MSG));
+        try {
+            self.flushQueue(new Error(utils.CONNECTION_CLOSED_ERROR_MSG));
+        }
+        catch (err) {
+            logData('unhandled rejection caught', { error: err });
+        }
     }
 };
 exports.dataHandler = function (self) {
