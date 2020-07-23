@@ -8,7 +8,7 @@ module.exports = {
     setLogger: function (loggerToSet) {
         if (loggerToSet) {
             logger = loggerToSet;
-            logger.error(`#### logger was set`);
+            logger.error(`#### logger was set v2`);
         }
     }
 };
